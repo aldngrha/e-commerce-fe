@@ -1,9 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import * as yup from "yup";
 import Swal from "sweetalert2";
 import { yupResolver } from "@hookform/resolvers/yup";
 import FormInput from "../../components/FormInput/FormInput.tsx";
+import { RpcError } from "@protobuf-ts/runtime-rpc";
+import { getAuthClient } from "../../api/grpc/client.ts";
 
 interface LoginFormValues extends Record<string, unknown> {
   email: string;
@@ -19,22 +21,59 @@ const loginSchema = yup.object().shape({
 });
 
 const Login = () => {
+  const navigate = useNavigate();
   const form = useForm<LoginFormValues>({
     resolver: yupResolver(loginSchema),
   });
 
-  const submitHandler = (data: LoginFormValues) => {
-    // Handle login logic here
-    console.log("Login data:", data);
-    // You can call an API to authenticate the user
-    // If successful, redirect to the dashboard or home page
-    // If failed, show an error message
-    Swal.fire({
-      title: "Berhasil",
-      text: "Anda berhasil masuk!",
-      icon: "success",
-      confirmButtonText: "OK",
-    });
+  const submitHandler = async (data: LoginFormValues) => {
+    try {
+      const client = getAuthClient();
+      const res = await client.login({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (res.response.base?.isError ?? true) {
+        Swal.fire({
+          title: "Gagal",
+          text: "Login gagal",
+          icon: "error",
+          confirmButtonText: "OK",
+        });
+        return;
+      }
+
+      localStorage.setItem("accessToken", res.response.accessToken);
+
+      navigate("/");
+
+      Swal.fire({
+        title: "Berhasil",
+        text: "Anda berhasil masuk!",
+        icon: "success",
+        confirmButtonText: "OK",
+      });
+    } catch (error) {
+      if (error instanceof RpcError) {
+        console.error(error.code, error.message);
+        if (error.code === "UNAUTHENTICATED") {
+          Swal.fire({
+            title: "Gagal",
+            text: "Email atau kata sandi salah",
+            icon: "error",
+            confirmButtonText: "OK",
+          });
+          return;
+        }
+      }
+      Swal.fire({
+        title: "Gagal",
+        text: "Login gagal, silakan coba beberapa saat lagi",
+        icon: "error",
+        confirmButtonText: "OK",
+      });
+    }
   };
 
   return (
