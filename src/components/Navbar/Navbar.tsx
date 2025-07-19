@@ -1,12 +1,38 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/auth.ts";
+import { getAuthClient } from "../../api/grpc/client.ts";
+import Swal from "sweetalert2";
 
 function Navbar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
+  const logout = useAuthStore((state) => state.logout);
 
   const cartUrl = isLoggedIn ? "/cart" : "/login";
   const profileUrl = isLoggedIn ? "/profile/change-password" : "/login";
+
+  const logoutHandler = async () => {
+    const result = await Swal.fire({
+      title: "Logout",
+      text: "Yakin ingin logout?",
+      showConfirmButton: true,
+      timerProgressBar: true,
+      showCancelButton: true,
+      cancelButtonText: "Cancel",
+      confirmButtonText: "Ya",
+    });
+
+    if (result.isConfirmed) {
+      const res = await getAuthClient().logout({});
+
+      if (!res.response.base?.isError) {
+        logout();
+        localStorage.removeItem("accessToken");
+        navigate("/");
+      }
+    }
+  };
 
   return (
     <nav
@@ -63,10 +89,10 @@ function Navbar() {
               </Link>
             </li>
             {isLoggedIn && (
-              <li>
-                <Link className="nav-link" to="#">
+              <li onClick={logoutHandler}>
+                <button className="nav-link border-0 bg-transparent">
                   <img src="/images/sign-out.svg" alt="User" />
-                </Link>
+                </button>
               </li>
             )}
           </ul>
