@@ -6,6 +6,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import FormInput from "../../components/FormInput/FormInput.tsx";
 import { RpcError } from "@protobuf-ts/runtime-rpc";
 import { getAuthClient } from "../../api/grpc/client.ts";
+import { useAuthStore } from "../../store/auth.ts";
 
 interface LoginFormValues extends Record<string, unknown> {
   email: string;
@@ -22,6 +23,7 @@ const loginSchema = yup.object().shape({
 
 const Login = () => {
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
   const form = useForm<LoginFormValues>({
     resolver: yupResolver(loginSchema),
   });
@@ -45,8 +47,7 @@ const Login = () => {
       }
 
       localStorage.setItem("accessToken", res.response.accessToken);
-
-      navigate("/");
+      login(res.response.accessToken);
 
       Swal.fire({
         title: "Berhasil",
@@ -54,6 +55,12 @@ const Login = () => {
         icon: "success",
         confirmButtonText: "OK",
       });
+
+      if (useAuthStore.getState().role === "admin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/");
+      }
     } catch (error) {
       if (error instanceof RpcError) {
         console.error(error.code, error.message);
