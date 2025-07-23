@@ -6,6 +6,7 @@ interface FormInputProps<T extends Record<string, unknown>> {
   register: UseFormRegister<T>;
   name: Path<T>;
   errors: FieldErrors<T>;
+  disabled?: boolean;
 }
 
 export default function FormInput<T extends Record<string, unknown>>(
@@ -18,6 +19,7 @@ export default function FormInput<T extends Record<string, unknown>>(
         type={props.type}
         className={`form-control ${props.errors[props.name] ? "is-invalid" : ""} `}
         placeholder={props.placeholder}
+        disabled={props.disabled}
       />
       <div
         className={`text-danger ${props.errors[props.name] ? "" : "hidden"}`}
