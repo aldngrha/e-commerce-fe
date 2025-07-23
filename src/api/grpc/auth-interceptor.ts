@@ -16,7 +16,7 @@ export const authInterceptor: RpcInterceptor = {
     if (accessToken) {
       options.meta = {
         ...options.meta,
-        authorization: `Bearer ${accessToken}`,
+        authorization: accessToken ? `Bearer ${accessToken}` : "",
       };
     }
     return next(method, input, options);
