@@ -4,9 +4,9 @@ import * as yup from "yup";
 import Swal from "sweetalert2";
 import { yupResolver } from "@hookform/resolvers/yup";
 import FormInput from "../../components/FormInput/FormInput.tsx";
-import { RpcError } from "@protobuf-ts/runtime-rpc";
 import { getAuthClient } from "../../api/grpc/client.ts";
 import { useAuthStore } from "../../store/auth.ts";
+import { useGrpcApi } from "../../hooks/useGrpcApi.tsx";
 
 interface LoginFormValues extends Record<string, unknown> {
   email: string;
@@ -24,62 +24,43 @@ const loginSchema = yup.object().shape({
 const Login = () => {
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
+  const { callApi } = useGrpcApi();
   const form = useForm<LoginFormValues>({
     resolver: yupResolver(loginSchema),
   });
 
   const submitHandler = async (data: LoginFormValues) => {
-    try {
-      const client = getAuthClient();
-      const res = await client.login({
+    const res = await callApi(
+      getAuthClient().login({
         email: data.email,
         password: data.password,
-      });
-
-      if (res.response.base?.isError ?? true) {
-        Swal.fire({
-          title: "Gagal",
-          text: "Login gagal",
-          icon: "error",
-          confirmButtonText: "OK",
-        });
-        return;
-      }
-
-      localStorage.setItem("accessToken", res.response.accessToken);
-      login(res.response.accessToken);
-
-      Swal.fire({
-        title: "Berhasil",
-        text: "Anda berhasil masuk!",
-        icon: "success",
-        confirmButtonText: "OK",
-      });
-
-      if (useAuthStore.getState().role === "admin") {
-        navigate("/admin/dashboard");
-      } else {
-        navigate("/");
-      }
-    } catch (error) {
-      if (error instanceof RpcError) {
-        console.error(error.code, error.message);
-        if (error.code === "UNAUTHENTICATED") {
+      }),
+      {
+        useDefaultAuthError: false,
+        defaultAuthError() {
           Swal.fire({
-            title: "Gagal",
+            title: "Login Gagal",
             text: "Email atau kata sandi salah",
             icon: "error",
             confirmButtonText: "OK",
           });
-          return;
-        }
-      }
-      Swal.fire({
-        title: "Gagal",
-        text: "Login gagal, silakan coba beberapa saat lagi",
-        icon: "error",
-        confirmButtonText: "OK",
-      });
+        },
+      },
+    );
+    localStorage.setItem("accessToken", res.response.accessToken);
+    login(res.response.accessToken);
+
+    Swal.fire({
+      title: "Berhasil",
+      text: "Anda berhasil masuk!",
+      icon: "success",
+      confirmButtonText: "OK",
+    });
+
+    if (useAuthStore.getState().role === "admin") {
+      navigate("/admin/dashboard");
+    } else {
+      navigate("/");
     }
   };
 

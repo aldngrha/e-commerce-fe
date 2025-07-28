@@ -5,7 +5,7 @@ import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { getAuthClient } from "../../api/grpc/client.ts";
 import Swal from "sweetalert2";
-import { useState } from "react";
+import { useGrpcApi } from "../../hooks/useGrpcApi.tsx";
 
 const registerSchema = yup.object().shape({
   email: yup.string().email("Email is required").required("Email is required"),
@@ -29,51 +29,43 @@ interface IRegisterFormValues extends Record<string, unknown> {
 
 const Register = () => {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<IRegisterFormValues>({
     resolver: yupResolver(registerSchema),
   });
 
+  const { callApi, isLoading } = useGrpcApi();
+
   const submitHandler = async (values: IRegisterFormValues): Promise<void> => {
-    setIsSubmitting(true);
-    try {
-      const res = await getAuthClient().register({
+    await callApi(
+      getAuthClient().register({
         email: values.email,
         fullName: values.full_name,
         password: values.password,
         confirmPassword: values.password_confirmation,
-      });
+      }),
+      {
+        useDefaultError: false,
+        defaultError(res) {
+          if (res.response.base?.message === "User already exists") {
+            Swal.fire({
+              title: "Registrasi Gagal",
+              icon: "error",
+              text: "User already exists",
+              showConfirmButton: true,
+              timer: 1500,
+            });
+          }
+        },
+      },
+    );
+    Swal.fire({
+      icon: "success",
+      title: "Success",
+      showConfirmButton: true,
+      timer: 1500,
+    });
 
-      if (res.response.base?.isError ?? true) {
-        if (res.response.base?.message === "User already exists") {
-          Swal.fire({
-            title: "Registrasi Gagal",
-            icon: "error",
-            text: "User already exists",
-            showConfirmButton: true,
-            timer: 1500,
-          });
-          return;
-        }
-        Swal.fire({
-          title: "Error",
-          icon: "error",
-          showConfirmButton: true,
-          timer: 1500,
-        });
-      }
-
-      Swal.fire({
-        icon: "success",
-        title: "Success",
-        showConfirmButton: true,
-        timer: 1500,
-      });
-
-      navigate("/login");
-    } finally {
-      setIsSubmitting(false);
-    }
+    navigate("/login");
   };
 
   return (
@@ -93,7 +85,7 @@ const Register = () => {
                   name="full_name"
                   placeholder="input full name"
                   errors={form.formState.errors}
-                  disabled={isSubmitting}
+                  disabled={isLoading}
                 />
                 <FormInput<IRegisterFormValues>
                   type="text"
@@ -101,7 +93,7 @@ const Register = () => {
                   name="email"
                   placeholder="input email"
                   errors={form.formState.errors}
-                  disabled={isSubmitting}
+                  disabled={isLoading}
                 />
                 <FormInput<IRegisterFormValues>
                   type="password"
@@ -109,7 +101,7 @@ const Register = () => {
                   name="password"
                   placeholder="input password"
                   errors={form.formState.errors}
-                  disabled={isSubmitting}
+                  disabled={isLoading}
                 />
                 <FormInput<IRegisterFormValues>
                   type="password"
@@ -117,15 +109,15 @@ const Register = () => {
                   name="password_confirmation"
                   placeholder="input confirm password"
                   errors={form.formState.errors}
-                  disabled={isSubmitting}
+                  disabled={isLoading}
                 />
                 <div className="form-group">
                   <button
                     type="submit"
                     className="btn btn-primary btn-block"
-                    disabled={isSubmitting}
+                    disabled={isLoading}
                   >
-                    {isSubmitting ? "Loading ..." : "Buat Akun"}
+                    {isLoading ? "Loading ..." : "Buat Akun"}
                   </button>
                 </div>
                 <div className="text-center mt-4">

@@ -2,15 +2,13 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import PlainHeroSection from "../../components/PlainHeroSection/PlainHeroSection";
 import { getAuthClient } from "../../api/grpc/client.ts";
-import Swal from "sweetalert2";
 import { convertTimestampToDate } from "../../utils/date.ts";
-import { RpcError } from "@protobuf-ts/runtime-rpc";
-import { useAuthStore } from "../../store/auth.ts";
+import { useGrpcApi } from "../../hooks/useGrpcApi.tsx";
 
 function Profile() {
   const location = useLocation();
+  const { callApi } = useGrpcApi();
   const navigate = useNavigate();
-  const logout = useAuthStore((state) => state.logout);
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [memberSince, setMemberSince] = useState<string>("");
@@ -23,43 +21,12 @@ function Profile() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      try {
-        const res = await getAuthClient().getProfile({});
+      const res = await callApi(getAuthClient().getProfile({}));
+      setFullName(res.response.fullName);
+      setEmail(res.response.email);
 
-        if (res.response.base?.isError ?? true) {
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            showConfirmButton: false,
-            timer: 1500,
-          });
-        }
-
-        setFullName(res.response.fullName);
-        setEmail(res.response.email);
-
-        const date = convertTimestampToDate(res.response.memberSince);
-        setMemberSince(date);
-      } catch (e) {
-        if (e instanceof RpcError) {
-          if (e.code === "UNAUTHENTICATED") {
-            logout();
-            localStorage.removeItem("accessToken");
-            Swal.fire({
-              icon: "error",
-              title: "Error",
-              showConfirmButton: false,
-            });
-            navigate("/");
-            return;
-          }
-        }
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          showConfirmButton: false,
-        });
-      }
+      const date = convertTimestampToDate(res.response.memberSince);
+      setMemberSince(date);
     };
 
     fetchProfile();

@@ -2,12 +2,15 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/auth.ts";
 import { getAuthClient } from "../../api/grpc/client.ts";
 import Swal from "sweetalert2";
+import { useGrpcApi } from "../../hooks/useGrpcApi.tsx";
 
 function Navbar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   const logout = useAuthStore((state) => state.logout);
+
+  const { callApi } = useGrpcApi();
 
   const cartUrl = isLoggedIn ? "/cart" : "/login";
   const profileUrl = isLoggedIn ? "/profile/change-password" : "/login";
@@ -24,13 +27,11 @@ function Navbar() {
     });
 
     if (result.isConfirmed) {
-      const res = await getAuthClient().logout({});
+      await callApi(getAuthClient().logout({}));
 
-      if (!res.response.base?.isError) {
-        logout();
-        localStorage.removeItem("accessToken");
-        navigate("/");
-      }
+      logout();
+      localStorage.removeItem("accessToken");
+      navigate("/");
     }
   };
 

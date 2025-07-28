@@ -4,10 +4,7 @@ import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { getAuthClient } from "../../api/grpc/client.ts";
 import Swal from "sweetalert2";
-import { useState } from "react";
-import { RpcError } from "@protobuf-ts/runtime-rpc";
-import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../store/auth.ts";
+import { useGrpcApi } from "../../hooks/useGrpcApi.tsx";
 
 const changePasswordSchema = yup.object().shape({
   current_password: yup.string().required("Current password is required"),
@@ -32,65 +29,37 @@ function ChangePasswordSection() {
   const form = useForm<ChangePasswordSectionProps>({
     resolver: yupResolver(changePasswordSchema),
   });
-  const navigate = useNavigate();
-  const logout = useAuthStore((state) => state.logout);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { isLoading, callApi } = useGrpcApi();
 
   const submitHandler = async (values: ChangePasswordSectionProps) => {
-    try {
-      setIsLoading(true);
-      const res = await getAuthClient().changePassword({
+    await callApi(
+      getAuthClient().changePassword({
         oldPassword: values.current_password,
         newPassword: values.new_password,
         confirmNewPassword: values.confirm_new_password,
-      });
+      }),
+      {
+        defaultError: (res) => {
+          if (res.response.base?.message === "Old password is not matched") {
+            Swal.fire({
+              icon: "error",
+              title: "Error",
+              text: "Old password is not match",
+            });
+          }
+        },
+        useDefaultError: false,
+      },
+    );
 
-      if (res.response.base?.isError ?? true) {
-        if (res.response.base?.message === "Old password is not matched") {
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: "Old password is not match",
-          });
-          return;
-        }
-        Swal.fire({
-          icon: "error",
-          title: "Error",
-          text: "Something went wrong",
-        });
-      }
+    Swal.fire({
+      icon: "success",
+      title: "Success",
+      text: "Successfully",
+    });
 
-      Swal.fire({
-        icon: "success",
-        title: "Success",
-        text: "Successfully",
-      });
-
-      form.reset();
-      return;
-    } catch (e) {
-      if (e instanceof RpcError) {
-        if (e.code === "UNAUTHENTICATED") {
-          logout();
-          localStorage.removeItem("accessToken");
-          Swal.fire({
-            icon: "error",
-            title: "Error",
-            showConfirmButton: false,
-          });
-          navigate("/");
-          return;
-        }
-      }
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        showConfirmButton: false,
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    form.reset();
+    return;
   };
 
   return (
